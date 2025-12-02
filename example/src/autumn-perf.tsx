@@ -3,453 +3,479 @@ import Stats from "stats.js";
 import { Analytics } from "@vercel/analytics/react";
 import { COLUMNS, generateRows } from "./generateRows";
 import { Grid } from "../../src/grid";
-import { useAutumnSignal, AutumnEffect, AutumnComponent } from "../../autumn-core/core/autumn";
+import {
+  useAutumnSignal,
+  AutumnEffect,
+  AutumnComponent,
+} from "../../autumn-core/core/autumn";
 
-// ---------------- AUTO SCROLLER ----------------
+/* ---------------- AutoScroller ---------------- */
 class AutoScroller {
   grid: Grid;
   toBottom = true;
   version = 0;
 
-  constructor(grid: Grid) { this.grid = grid; }
+  constructor(grid: Grid) {
+    this.grid = grid;
+  }
 
   start(speed: number) {
-    if (!speed) return;
+    if (speed === 0) return;
     this.version++;
-    const versionAtStart = this.version;
+    const currentVersion = this.version;
 
-    const step = () => {
+    const cb = () => {
+      if (this.version !== currentVersion) return;
       const state = this.grid.getState();
-      if (this.version !== versionAtStart) return;
-
       if (this.grid.offsetY > state.tableHeight - this.grid.viewportHeight - 1) this.toBottom = false;
       else if (this.grid.offsetY <= 0) this.toBottom = true;
 
       const delta = this.toBottom ? speed : -speed;
       this.grid.container.dispatchEvent(new WheelEvent("wheel", { deltaY: delta }));
-
-      requestAnimationFrame(step);
+      requestAnimationFrame(cb);
     };
-    requestAnimationFrame(step);
+    requestAnimationFrame(cb);
   }
 }
 
-// ---------------- AUTUMN LAYERS ----------------
-const LAYERS = [
-  "Application Layer",
-  "Signal & Reactivity Layer",
-  "Scheduler / Loop Engine",
-  "Renderer Layer",
-  "Data & Memory Layer"
-];
-const layerElements: Record<string, HTMLElement> = {};
-LAYERS.forEach(name => {
+/* ---------------- DOM Impulses ---------------- */
+function showImpulse(label: string, color = "#4ade80") {
   const el = document.createElement("div");
-  el.className = "autumn-layer";
-  el.dataset.layer = name;
-  el.dataset.status = "running";
-  el.style.cssText = `
-    pointer-events:none;
-    font-family:monospace;
-    font-size:12px;
-    position:fixed;
-    right:0;
-    top:0;
-    background:rgba(0,0,0,0.25);
-    padding:3px 5px;
-    margin:2px;
-    border-radius:4px;
-    z-index:9998;
-    color:#fff;
-    backdrop-filter:blur(2px);
-    transition: all 0.15s ease;
-  `;
-  document.body.appendChild(el);
-  layerElements[name] = el;
-});
+  el.textContent = `⚡ ${label}`;
+  Object.assign(el.style, {
+    fontFamily: "monospace",
+    fontSize: "12px",
+    fontWeight: "700",
+    color: "white",
+    background: color,
+    padding: "3px 8px",
+    borderRadius: "8px",
+    opacity: "1",
+    transform: "scale(1)",
+    transition: "opacity 0.6s ease, transform 0.6s ease",
+    boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
+  });
 
-// ---------------- SIGNAL EXPLOSIONS ----------------
-const explosions: Record<string, { x: number; y: number; vx: number; vy: number; alpha: number }[]> = {};
-
-function triggerLayerExplosion(layer: string) {
-  if (!explosions[layer]) explosions[layer] = [];
-  const el = layerElements[layer];
-  if (!el) return;
-  const rect = el.getBoundingClientRect();
-  for (let i = 0; i < 15; i++) {
-    explosions[layer].push({
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2,
-      vx: (Math.random() - 0.5) * 6,
-      vy: (Math.random() - 0.5) * 6,
-      alpha: 1
-    });
-  }
-}
-
-// ---------------- REACTIVE SIGNAL ----------------
-function reactiveSignal<T>(initial: T, layerName: string) {
-  const s = useAutumnSignal(initial);
-  const originalSet = s.set.bind(s);
-  s.set = (val: T) => {
-    if (val !== s.get()) {
-      const el = layerElements[layerName];
-      if (el) {
-        el.style.background = "rgba(0,255,200,0.95)";
-        setTimeout(() => (el.style.background = "rgba(0,0,0,0.25)"), 100);
-      }
-      triggerLayerExplosion(layerName);
-    }
-    return originalSet(val);
-  };
-  return s;
-}
-// ---------------- SIGNAL PARTICLE MAP ----------------
-const SignalMap = AutumnComponent(({ speed }: { speed: ReturnType<typeof useAutumnSignal<number>> }) => {
-  const canvasRef = useAutumnSignal<HTMLCanvasElement | null>(null);
-  const pos = useAutumnSignal({ x: 16, y: 16 }); // 🔥 track position
-  const dragging = useAutumnSignal(false);
-  const offset = useAutumnSignal({ x: 0, y: 0 });
-
-  // ---- 🎯 Dragging system ----
-  AutumnEffect(() => {
-    const el = canvasRef.get();
-    if (!el) return;
-
-    const onMouseDown = (e: MouseEvent) => {
-      dragging.set(true);
-      offset.set({ x: e.clientX - pos.get().x, y: e.clientY - pos.get().y });
-      e.preventDefault();
-    };
-    const onMouseUp = () => dragging.set(false);
-    const onMouseMove = (e: MouseEvent) => {
-      if (!dragging.get()) return;
-      pos.set({
-        x: e.clientX - offset.get().x,
-        y: e.clientY - offset.get().y
-      });
-    };
-
-    el.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("mouseup", onMouseUp);
-    window.addEventListener("mousemove", onMouseMove);
-
-    return () => {
-      el.removeEventListener("mousedown", onMouseDown);
-      window.removeEventListener("mouseup", onMouseUp);
-      window.removeEventListener("mousemove", onMouseMove);
-    };
-  }, [canvasRef.get(), dragging.get()]);
-
-  // ---- 🌌 Particle animation ----
-  AutumnEffect(() => {
-    const canvas = canvasRef.get();
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const nodes: { x: number; y: number; alpha: number; vx: number; vy: number }[] = [];
-    const totalNodes = 120;
-    for (let i = 0; i < totalNodes; i++) {
-      nodes.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        alpha: Math.random(),
-        vx: (Math.random() - 0.5) * 2,
-        vy: (Math.random() - 0.5) * 2
-      });
-    }
-
-    const animate = () => {
-      ctx.fillStyle = "rgba(0,0,0,0.85)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      const spd = Math.max(speed.get() / 10, 1);
-
-      nodes.forEach(n => {
-        n.x += n.vx * spd;
-        n.y += n.vy * spd;
-        n.alpha -= 0.02 * spd;
-
-        if (n.alpha <= 0 || n.x < 0 || n.y < 0 || n.x > canvas.width || n.y > canvas.height) {
-          n.alpha = 1;
-          n.x = Math.random() * canvas.width;
-          n.y = Math.random() * canvas.height;
-          n.vx = (Math.random() - 0.5) * 4;
-          n.vy = (Math.random() - 0.5) * 4;
-        }
-
-        ctx.beginPath();
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = "#00ffc8";
-        ctx.fillStyle = `rgba(0,255,200,${n.alpha})`;
-        ctx.arc(n.x, n.y, 3 + spd * 0.5, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      Object.keys(explosions).forEach(layer => {
-        const arr = explosions[layer];
-        for (let i = arr.length - 1; i >= 0; i--) {
-          const n = arr[i];
-          n.x += n.vx;
-          n.y += n.vy;
-          n.alpha -= 0.05;
-          ctx.beginPath();
-          ctx.fillStyle = `rgba(0,255,255,${n.alpha})`;
-          ctx.arc(n.x, n.y, 4, 0, Math.PI * 2);
-          ctx.fill();
-          if (n.alpha <= 0) arr.splice(i, 1);
-        }
-      });
-
-      requestAnimationFrame(animate);
-    };
-    animate();
-  }, [canvasRef.get(), speed.get()]);
-
-  return (
-    <canvas
-      ref={el => canvasRef.set(el)}
-      width={200}
-      height={200}
-      style={{
+  const container =
+    document.getElementById("impulse-layer") ||
+    (() => {
+      const c = document.createElement("div");
+      c.id = "impulse-layer";
+      Object.assign(c.style, {
         position: "fixed",
-        left: pos.get().x,
-        top: pos.get().y,
-        zIndex: 9999,
-        borderRadius: "12px",
-        background: "rgba(0,0,0,0.85)",
-        pointerEvents: "auto",
-        boxShadow: "0 0 16px rgba(0,255,200,0.7)",
-        cursor: "move",
-        transition: dragging.get() ? "none" : "left 0.1s ease, top 0.1s ease" // 🔥 smooth snap feel
-      }}
-    />
-  );
-});
+        top: "50%",
+        left: "50%",
+        transform: "translate(-50%, -50%)",
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+        zIndex: "9999",
+        pointerEvents: "none",
+        alignItems: "center",
+      });
+      document.body.appendChild(c);
+      return c;
+    })();
 
-// ---------------- FPS OVERLAY ----------------
+  container.prepend(el);
+
+  requestAnimationFrame(() => {
+    el.style.opacity = "0";
+    el.style.transform = "scale(1.4)";
+  });
+  setTimeout(() => el.remove(), 700);
+}
+
+/* ---------------- FPS Monitor ---------------- */
 export const setupFPS = () => {
   if (document.getElementById("draggable-fps")) return;
+
   const stats = new Stats();
   stats.showPanel(0);
   stats.dom.id = "draggable-fps";
   Object.assign(stats.dom.style, {
     position: "fixed",
-    top: "50px",
-    left: "50px",
+    top: "60px",
+    left: "60px",
     zIndex: "9999",
     cursor: "move",
     userSelect: "none",
-    borderRadius: "8px",
-    boxShadow: "0 2px 10px rgba(0,0,0,0.2)"
+    borderRadius: "12px",
+    overflow: "hidden",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.35)",
+    transition: "transform 0.3s ease",
   });
+
   for (const child of stats.dom.children) {
     // @ts-expect-error
-    child.style.width = "160px";
+    child.style.width = "180px";
     // @ts-expect-error
-    child.style.height = "96px";
+    child.style.height = "100px";
   }
+
   document.body.appendChild(stats.dom);
 
-  let isDragging = false, offsetX = 0, offsetY = 0;
-  const onMouseDown = (e: MouseEvent) => { isDragging = true; offsetX = e.clientX - stats.dom.offsetLeft; offsetY = e.clientY - stats.dom.offsetTop; e.preventDefault(); };
+  stats.dom.addEventListener("mouseenter", () => (stats.dom.style.transform = "scale(1.1)"));
+  stats.dom.addEventListener("mouseleave", () => (stats.dom.style.transform = "scale(1)"));
+
+  let isDragging = false;
+  let offsetX = 0;
+  let offsetY = 0;
+
+  const onMouseDown = (e: MouseEvent) => {
+    isDragging = true;
+    offsetX = e.clientX - stats.dom.offsetLeft;
+    offsetY = e.clientY - stats.dom.offsetTop;
+    e.preventDefault();
+  };
   const onMouseUp = () => (isDragging = false);
-  const onMouseMove = (e: MouseEvent) => { if (!isDragging) return; stats.dom.style.left = e.clientX - offsetX + "px"; stats.dom.style.top = e.clientY - offsetY + "px"; };
+  const onMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    stats.dom.style.left = e.clientX - offsetX + "px";
+    stats.dom.style.top = e.clientY - offsetY + "px";
+  };
 
   stats.dom.addEventListener("mousedown", onMouseDown);
   window.addEventListener("mouseup", onMouseUp);
   window.addEventListener("mousemove", onMouseMove);
 
-  const animate = () => { stats.update(); requestAnimationFrame(animate); };
+  const animate = () => {
+    stats.update();
+    requestAnimationFrame(animate);
+  };
   requestAnimationFrame(animate);
 
-  return () => { stats.dom.remove(); stats.dom.removeEventListener("mousedown", onMouseDown); window.removeEventListener("mouseup", onMouseUp); window.removeEventListener("mousemove", onMouseMove); };
+  return () => {
+    stats.dom.remove();
+    stats.dom.removeEventListener("mousedown", onMouseDown);
+    window.removeEventListener("mouseup", onMouseUp);
+    window.removeEventListener("mousemove", onMouseMove);
+  };
 };
 
-setupFPS();
+function createParticleField() {
+  if (document.getElementById("particle-bg")) return;
 
-// ---------------- PERFORMANCE OVERLAY ----------------
-const PerformanceOverlay = AutumnComponent(() => {
-  const fps = useAutumnSignal(0);
-  const memTotal = useAutumnSignal(0);
-  const memUsed = useAutumnSignal(0);
-
-  AutumnEffect(() => {
-    const update = () => {
-      fps.set(Math.round(performance.now() % 100));
-      if (performance.memory) {
-        memTotal.set(performance.memory.totalJSHeapSize / 1024 / 1024);
-        memUsed.set(performance.memory.usedJSHeapSize / 1024 / 1024);
-      }
-      requestAnimationFrame(update);
-    };
-    update();
-  }, []);
-
-  return (
-    <div style={{
-      position: "fixed",
-      top: 12,
-      right: 12,
-      width: "160px",
-      height: "120px",
-      background: "rgba(0,0,0,0.9)",
-      color: "#00ff00",
-      fontFamily: "monospace",
-      fontSize: "12px",
-      padding: "10px",
-      borderRadius: "8px",
-      zIndex: 9999,
-      pointerEvents: "none",
-      display: "flex",
-      flexDirection: "column",
-      justifyContent: "center",
-      alignItems: "center",
-      boxShadow: "0 0 12px rgba(0,255,0,0.5)"
-    }}>
-      <div>FPS: {fps.get()}</div>
-      <div>Mem Total: {memTotal.get().toFixed(2)} MB</div>
-      <div>Mem Used: {memUsed.get().toFixed(2)} MB</div>
-    </div>
-  );
-});
-
-// ---------------- REACTIVE CONSOLE ----------------
-const ReactiveConsole = AutumnComponent(() => {
-  const consoleRef = useAutumnSignal<HTMLDivElement | null>(null);
-  const allSignals = (window as any).__allAutumnSignals = (window as any).__allAutumnSignals || [];
-
-  AutumnEffect(() => {
-    const el = consoleRef.get();
-    if (!el) return;
-
-    const update = () => {
-      el.innerHTML = "";
-      allSignals.forEach((s: any) => {
-        const div = document.createElement("div");
-        div.textContent = `${s.name}: ${JSON.stringify(s.signal.get())}`;
-        div.style.padding = "2px 4px";
-        div.style.fontSize = "12px";
-        div.style.color = "#00ff99";
-        el.appendChild(div);
-      });
-      requestAnimationFrame(update);
-    };
-    update();
-  }, [consoleRef.get()]);
-
-  return <div ref={el => consoleRef.set(el)} style={{
+  const canvas = document.createElement("canvas");
+  canvas.id = "particle-bg";
+  Object.assign(canvas.style, {
     position: "fixed",
-    bottom: "50px",
-    left: "50px",
-    width: "250px",
-    height: "200px",
-    background: "rgba(0,0,0,0.9)",
-    color: "#00ff99",
+    top: "0",
+    left: "0",
+    width: "100%",
+    height: "100%",
+    zIndex: "0",
+    pointerEvents: "none",
+  });
+  document.body.appendChild(canvas);
+
+  const ctx = canvas.getContext("2d");
+  const particles: { x: number; y: number; vx: number; vy: number; size: number; color: string }[] = [];
+
+  for (let i = 0; i < 80; i++) {
+    particles.push({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      size: 1 + Math.random() * 3,
+      color: `hsl(${Math.random() * 360}, 70%, 60%)`,
+    });
+  }
+
+  function animate() {
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    particles.forEach((p) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0 || p.x > window.innerWidth) p.vx *= -1;
+      if (p.y < 0 || p.y > window.innerHeight) p.vy *= -1;
+
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+function burstConfetti() {
+  const colors = ["#facc15","#f43f5e","#3b82f6","#22c55e","#a855f7"];
+  for(let i=0;i<30;i++){
+    const dot = document.createElement("div");
+    dot.style.position="fixed";
+    dot.style.width="6px";
+    dot.style.height="6px";
+    dot.style.borderRadius="50%";
+    dot.style.background=colors[Math.floor(Math.random()*colors.length)];
+    dot.style.top= `${50 + (Math.random()-0.5)*20}%`;
+    dot.style.left= `${50 + (Math.random()-0.5)*20}%`;
+    dot.style.zIndex="9999";
+    dot.style.pointerEvents="none";
+    document.body.appendChild(dot);
+    const angle = Math.random()*2*Math.PI;
+    const speed = 1+Math.random()*3;
+    let t=0;
+    const anim = () => {
+      t+=0.016;
+      dot.style.transform = `translate(${Math.cos(angle)*t*speed*20}px, ${Math.sin(angle)*t*speed*20}px) scale(${1-t*0.8})`;
+      dot.style.opacity = `${1-t}`;
+      if(t<1) requestAnimationFrame(anim);
+      else dot.remove();
+    };
+    anim();
+  }
+}
+
+class ReactiveInspector {
+  container: HTMLDivElement;
+  lines: HTMLDivElement[] = [];
+  maxLines = 12;
+
+  constructor() {
+    this.container = document.createElement("div");
+    Object.assign(this.container.style, {
+      position: "fixed",
+      bottom: "20px",
+      right: "20px",
+      fontFamily: "monospace",
+      fontSize: "11px",
+      lineHeight: "1.2em",
+      color: "#fff",
+      background: "rgba(0,0,0,0.65)",
+      padding: "6px 12px",
+      borderRadius: "8px",
+      zIndex: "9999",
+      pointerEvents: "none",
+      width: "260px",
+      maxHeight: "calc(1.2em * 12)",
+      overflow: "hidden",
+    });
+    document.body.appendChild(this.container);
+  }
+
+  push(message: string) {
+    let line: HTMLDivElement;
+    if (this.lines.length < this.maxLines) {
+      line = document.createElement("div");
+      this.container.appendChild(line);
+      this.lines.push(line);
+    } else {
+      line = this.lines.shift()!;
+      this.lines.push(line);
+    }
+    line.textContent = `⚡ ${message}`;
+    line.style.background = "rgba(255,255,255,0.3)";
+    line.style.transition = "background 0.5s ease";
+    requestAnimationFrame(() => line.style.background = "transparent");
+  }
+}
+
+const inspector = new ReactiveInspector();
+function monitorSignal<T>(label: string, signal: { get: () => T }) {
+  AutumnEffect(() => inspector.push(`${label}: ${signal.get()}`), [signal.get()]);
+}
+
+function setupRuntimeHUD() {
+  if (document.getElementById("runtime-hud")) return;
+
+  const hud = document.createElement("div");
+  hud.id = "runtime-hud";
+  hud.textContent = "⚡ Reactive Runtime: ONLINE";
+  Object.assign(hud.style, {
+    position: "fixed",
+    top: "50%",
+    right: "20px",
+    transform: "translateY(-50%)",
     fontFamily: "monospace",
     fontSize: "12px",
-    padding: "8px",
+    fontWeight: "600",
+    padding: "4px 10px",
     borderRadius: "8px",
-    overflowY: "auto",
-    zIndex: 9999,
-    boxShadow: "0 0 12px rgba(0,255,0,0.5)",
-    cursor: "move"
-  }}/>;
-});
+    color: "white",
+    background: "#10b981",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+    transition: "background 0.4s ease, transform 0.2s ease",
+    zIndex: "9999",
+  });
+  document.body.appendChild(hud);
 
-// ---------------- FASTGRID ----------------
+  let blinkInterval: any = null;
+  return (mode: "normal" | "stress") => {
+    if (mode === "stress") {
+      hud.textContent = "⚡ Reactive Runtime: STRESS";
+      hud.style.background = "#ef4444";
+      if (!blinkInterval) {
+        let scaleUp = false;
+        blinkInterval = setInterval(() => {
+          hud.style.transform = scaleUp ? "translateY(-50%) scale(1.1)" : "translateY(-50%) scale(1.0)";
+          scaleUp = !scaleUp;
+        }, 500);
+      }
+    } else {
+      hud.textContent = "⚡ Reactive Runtime: ONLINE";
+      hud.style.background = "#10b981";
+      if (blinkInterval) clearInterval(blinkInterval);
+      blinkInterval = null;
+      hud.style.transform = "translateY(-50%) scale(1.0)";
+    }
+  };
+}
+
 export const FastGrid = AutumnComponent(() => {
   const containerRef = useAutumnSignal<HTMLDivElement | null>(null);
   const grid = useAutumnSignal<Grid | null>(null);
-  const scroller = useAutumnSignal<AutoScroller | null>(null);
+  const autoScroller = useAutumnSignal<AutoScroller | null>(null);
+  const speed = useAutumnSignal(0);
+  const rowCount = useAutumnSignal(100_000);
+  const stressTest = useAutumnSignal(false);
+  const loadingRows = useAutumnSignal(false);
 
-  const speed = reactiveSignal(50, "Signal & Reactivity Layer");
-  const rowsNum = reactiveSignal(100_000, "Data & Memory Layer");
-  const stress = reactiveSignal(false, "Application Layer");
-  const loading = useAutumnSignal(false);
+  const hudUpdate = setupRuntimeHUD();
 
-  (window as any).__allAutumnSignals = [
-    { name: "speed", signal: speed },
-    { name: "rowsNum", signal: rowsNum },
-    { name: "stress", signal: stress },
-    { name: "loading", signal: loading }
-  ];
+  monitorSignal("Scroll Speed", speed);
+  monitorSignal("Row Count", rowCount);
+  monitorSignal("Stress Mode", stressTest);
+  monitorSignal("Loading Rows", loadingRows);
 
   AutumnEffect(() => {
-    const el = containerRef.get();
-    if (!el) return;
+    const container = containerRef.get();
+    if (!container) return;
 
-    const g = new Grid(el, [], COLUMNS);
+    const g = new Grid(container, [], COLUMNS);
     grid.set(g);
 
-    loading.set(true);
-    generateRows(rowsNum.get(), g, () => loading.set(false));
+    loadingRows.set(true);
+    generateRows(rowCount.get(), g, () => loadingRows.set(false));
 
-    const sc = new AutoScroller(g);
-    scroller.set(sc);
-    (window as any).__grid = g;
+    const scroller = new AutoScroller(g);
+    autoScroller.set(scroller);
 
     return () => g.destroy();
-  }, [containerRef.get(), rowsNum.get()]);
+  }, [containerRef.get(), rowCount.get()]);
 
   AutumnEffect(() => {
-    const g = grid.get();
-    if (!g || !stress.get()) return;
-    const id = setInterval(() => {
-          // 👇 Clean boot-style logs
-      console.log("%c[Signal] Filter pulse", "color:#9c27b0;font-weight:bold;");
-      console.log("%c[Scheduler] Recompute queued", "color:#1976d2;font-weight:bold;");
-      console.log("%c[Renderer] Commit complete", "color:#e53935;font-weight:bold;");
-      const f = g.rowManager.view.filter;
-      if (!f[4] || f[4].length < 5) f[4] = (f[4] ?? "") + Math.floor(Math.random() * 10);
-      else delete f[4];
-      g.rowManager.runFilter();
-    }, 100);
-    return () => clearInterval(id);
-  }, [grid.get(), stress.get()]);
+    const scroller = autoScroller.get();
+    if (!scroller || speed.get() === 0) return;
+    scroller.start(Math.exp(speed.get() / 15));
+  }, [autoScroller.get(), speed.get()]);
 
+  AutumnEffect(() => showImpulse(`Scroll speed: ${speed.get()}`, "#3b82f6"), [speed.get()]);
+  AutumnEffect(() => showImpulse(`Row count: ${rowCount.get()}`, "#f59e0b"), [rowCount.get()]);
   AutumnEffect(() => {
-    const sc = scroller.get();
-    if (!sc || speed.get() === 0) return;
-    sc.start(Math.exp(speed.get() / 15));
-  }, [scroller.get(), speed.get()]);
+    if (stressTest.get()) {
+      showImpulse("Stress ON", "#ef4444");
+      hudUpdate("stress");
+      burstConfetti();
+      for (let i = 0; i < 50; i++) showImpulse(`DOM FLEX #${i}`);
+      for (let i = 0; i < 20; i++) inspector.push(`⚡ SIGNAL FLEX #${i}: ${Math.floor(Math.random()*1_000_000)}`);
+      console.clear();
+      for (let i = 0; i < 100; i++) console.log(`%cCONSOLE FLEX #${i}`, `color:hsl(${Math.random()*360},70%,50%); font-weight:bold;`);
+    } else {
+      showImpulse("Stress OFF", "#22c55e");
+      hudUpdate("normal");
+    }
+  }, [stressTest.get()]);
 
   return (
-    <div className="w-screen h-screen flex flex-col bg-gray-50 relative">
+    <div className="w-screen h-screen flex flex-col bg-gray-50 font-sans relative">
       <Analytics />
-      <SignalMap speed={speed} />
-      <PerformanceOverlay />
-      <ReactiveConsole />
+      
+      <div className="px-1 py-1 bg-white">
+        <h1 className="text-6xl font-thin tracking-tight text-black mb-6 leading-none" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif' }}>
+          Autumn.js
+        </h1>
+        <p className="text-xl text-gray-700 leading-relaxed max-w-3xl font-light mb-1" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif' }}>
+          Reactive frontend runtime built for massive datasets.
+        </p>
+        <p className="text-xl text-gray-700 leading-relaxed max-w-3xl font-light" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif' }}>
+          10M+ rows at 60-120fps with zero frame drops.{' '}
+          <a 
+            href="https://github.com/renderhq/autumnjs" 
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-black hover:text-gray-500 transition-colors group"
+          >
+            <span className="font-normal border-b border-black group-hover:border-gray-500">Source</span>
+            <svg 
+              className="w-4 h-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" 
+              viewBox="0 0 24 24" 
+              fill="none"
+            >
+              <g stroke="currentColor" strokeLinecap="round" strokeWidth="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <path d="M15 3h6v6"></path>
+                <path d="M10 14L21 3"></path>
+              </g>
+            </svg>
+          </a>
+        </p>
+      </div>
 
-      <div className="p-2 flex flex-wrap gap-2 items-center z-20">
+      <div className="p-3 flex flex-wrap gap-3 items-center border-b border-gray-200 bg-gray-50 shadow-sm">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">Scroll speed:</span>
-          <input type="range" min={0} max={100} value={speed.get()} onChange={e => speed.set(Number(e.target.value))}
-            className={clsx("h-2 w-40 cursor-pointer rounded-full bg-gray-300")} />
+          <span className="text-sm font-medium text-gray-700">Scroll speed:</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={speed.get()}
+            onChange={(e) => speed.set(Number(e.target.value))}
+            className={clsx(
+              "h-2 w-40 cursor-pointer rounded-full bg-gray-300",
+              speed.get() > 70 && "shadow-lg border-2 border-blue-400"
+            )}
+          />
         </div>
 
-        <button className={clsx(
-          "h-8 px-3 rounded text-white hover:scale-95 transition-all",
-          stress.get() ? "bg-red-500 hover:bg-red-600" : "bg-blue-500 hover:bg-blue-600"
-        )} onClick={() => stress.set(!stress.get())}>
-          {stress.get() ? "Stress Test ON" : "Stress Test OFF"}
+        <button
+          className={clsx(
+            "h-8 px-4 rounded text-white hover:scale-95 transition-all",
+            stressTest.get() ? "bg-red-500 hover:bg-red-600 animate-pulse" : "bg-blue-500 hover:bg-blue-600"
+          )}
+          onClick={() => {
+            if (stressTest.get()) {
+              stressTest.set(false);
+              speed.set(0);
+            } else {
+              stressTest.set(true);
+              speed.set(100);
+            }
+          }}
+        >
+          {stressTest.get() ? "Stress ON" : "Stress OFF"}
         </button>
 
-        <select value={rowsNum.get()} onChange={e => rowsNum.set(Number(e.target.value))}
-          className="h-8 rounded border border-gray-700 bg-white px-2 text-sm">
-          {[10,10_000,100_000,200_000,500_000,1_000_000,2_000_000,5_000_000,10_000_000].map(v =>
-            <option key={v} value={v}>{v.toLocaleString()} rows</option>
-          )}
+        <select
+          value={rowCount.get()}
+          onChange={(e) => rowCount.set(Number(e.target.value))}
+          className="h-8 rounded border border-gray-300 bg-white px-2 text-sm text-gray-700"
+        >
+          {[10, 10_000, 100_000, 200_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000].map((n) => (
+            <option key={n} value={n}>{n.toLocaleString()} rows</option>
+          ))}
         </select>
       </div>
 
-      <div ref={el => containerRef.set(el)}
-        style={{ flex: 1, contain: "strict" }}
+      <div
+        ref={(el) => containerRef.set(el)}
+        style={{ flex: 1 }}
         className={clsx(
-          "relative w-full overflow-clip border border-gray-700 bg-white shadow-inner",
-          loading.get() && "pointer-events-none opacity-70"
+          "relative w-full overflow-auto border border-gray-200 bg-white shadow-inner",
+          loadingRows.get() && "pointer-events-none opacity-70"
         )}
       />
     </div>
   );
 });
+
+/* ---------------- BOOT EVERYTHING ---------------- */
+setupFPS();
+createParticleField();

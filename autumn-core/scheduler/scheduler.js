@@ -1,6 +1,3 @@
-// /autmn-core/scheduler/scheduler.js
-// ULTRA-GOD TIER SCHEDULER v1.0
-// Lane-based Input → Animation → Render → Background
 
 import { Effect } from '../reactivity/signal.js';
 
@@ -48,7 +45,6 @@ function flush() {
   }
 }
 
-// Only schedule flush if nothing is scheduled
 function requestFlush() {
   if (!frameScheduled) {
     frameScheduled = true;
@@ -56,7 +52,6 @@ function requestFlush() {
   }
 }
 
-// Wrappers for clarity
 export function scheduleInput(fn, priority = 0) { schedule(fn, LANES.INPUT, priority); }
 export function scheduleAnimation(fn, priority = 0) { schedule(fn, LANES.ANIMATION, priority); }
 export function scheduleRender(fn, priority = 0) { schedule(fn, LANES.RENDER, priority); }

@@ -1,6 +1,5 @@
 import { AutumnRoot } from "./autumn-root";
 
-/* 🚀 Pretty console banner to look like architecture boot log */
 function showAutumnBootLog() {
   const banner = `
 ┌───────────────────────────────────────────────────────────────┐
@@ -116,12 +115,10 @@ if (!import.meta.env.PROD) {
     }
   });
 } else {
-  // In production, only show our boot banner + system logs once
   showAutumnBootLog();
   showAutumnSystemLogs();
 }
 
-/* 🚀 Mount Autumn Framework */
 const rootEl = document.getElementById("autumn-root");
 if (!rootEl) throw new Error("Cannot find #autumn-root in HTML");
 AutumnRoot.mount(rootEl);

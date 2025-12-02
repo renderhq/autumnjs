@@ -10,7 +10,6 @@ import {
   AutumnComponent,
 } from "../../autumn-core/core/autumn";
 
-/* ---------------- Auto Scroller ---------------- */
 class AutoScroller {
   grid: Grid;
   toBottom = true;
@@ -227,9 +226,7 @@ export const FastGrid = AutumnComponent(() => {
 </div>
 
   )})
-/* ---------------- Professional Compact FPS HUD ---------------- */
 
-// ----------- FPS SETUP -------------
 export const setupFPS = () => {
   if (document.getElementById("draggable-fps")) return;
 

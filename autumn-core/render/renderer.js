@@ -1,13 +1,8 @@
-// /autmn-core/render/renderer.js
-// ULTRA-GOD TIER ATOMIC RENDERER v2.1
-// DAG-aware, batching-aware, zero-frame-drop renderer
-// With adaptive scheduling + GPU integration
-
 import { batch } from '../reactivity/reactive.js';
 import { scheduleRender } from '../scheduler/scheduler.js';
 import { renderer as gpuRenderer } from './gpu-batcher.js';
 
-let tmpList = []; // reuse buffer to avoid GC thrash
+let tmpList = [];
 
 export class Renderer {
   constructor(root = document.body) {
@@ -16,7 +11,6 @@ export class Renderer {
     this.flushing = false;
   }
 
-  // mark reactive node dirty
   mark(node) {
     if (!node._dirty) {
       node._dirty = true;
@@ -58,19 +52,15 @@ export class Renderer {
         }
       }
 
-      if (gpuWork) {
-        gpuRenderer.flush();
-      }
+      if (gpuWork) gpuRenderer.flush();
     });
 
-    // release flag in a microtask to prevent re-entrancy starvation
     queueMicrotask(() => {
       this.flushing = false;
       if (this.queue.size > 0) this.scheduleFlush();
     });
   }
 
-  // hybrid scheduler: microtask for state, RAF for visuals
   scheduleFlush() {
     scheduleRender(() => this.flush(), 1);
   }

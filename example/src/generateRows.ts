@@ -4,6 +4,9 @@ import { Cell, Row } from "../../src/row";
 import { Rows } from "../../src/row-manager/row-manager";
 
 const N_COLS = 15;
+const MIN_BATCH_SIZE = 1_000;
+const MAX_BATCH_SIZE = 20_000;
+const TARGET_YIELD_MS = 8;
 
 const skewedRandom = () => {
   const a = Math.pow(Math.random(), 2);
@@ -20,18 +23,47 @@ export const generateRows = async (
 ) => {
   const rows: Rows = [];
   let cellIndex = 0;
-  const BATCH_SIZE = 50000; // larger batch for fewer setRows calls
+  let batchSize = Math.min(
+    MAX_BATCH_SIZE,
+    Math.max(MIN_BATCH_SIZE, Math.floor(rowCount / 50) || MIN_BATCH_SIZE)
+  );
+  let rowsSinceYield = 0;
+  let lastYieldTs = performance.now();
 
-  for (let rowIdx = 0; rowIdx < rowCount; rowIdx++) {
-    // Yield control every BATCH_SIZE rows to keep UI responsive
-    if (rowIdx % BATCH_SIZE === 0 && isTimeToYield("background")) {
-      await yieldControl("background");
-      grid.rowManager.setRows(rows, true);
+  const maybeYield = async (force = false) => {
+    if (
+      !force &&
+      rowsSinceYield < batchSize &&
+      !isTimeToYield("background")
+    ) {
+      return true;
     }
 
+    grid.rowManager.setRows(rows, true);
+    rowsSinceYield = 0;
+
+    await yieldControl("background");
+
+    if (!grid.container.isConnected) {
+      return false;
+    }
+
+    const now = performance.now();
+    const elapsed = now - lastYieldTs;
+    lastYieldTs = now;
+
+    if (elapsed > TARGET_YIELD_MS && batchSize > MIN_BATCH_SIZE) {
+      batchSize = Math.max(MIN_BATCH_SIZE, Math.floor(batchSize * 0.75));
+    } else if (elapsed < TARGET_YIELD_MS / 2 && batchSize < MAX_BATCH_SIZE) {
+      batchSize = Math.min(MAX_BATCH_SIZE, Math.floor(batchSize * 1.2));
+    }
+
+    return true;
+  };
+
+  for (let rowIdx = 0; rowIdx < rowCount; rowIdx++) {
     const cells: Cell[] = [{ id: -rowIdx - 1, v: String(rowIdx + 1) }];
 
-    // Precompute random values for the row
     const firstName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
     const lastName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
     const age = Math.floor(Math.random() * (99 - 18 + 1)) + 18;
@@ -57,10 +89,19 @@ export const generateRows = async (
     }
 
     rows.push({ id: rowIdx, cells } satisfies Row);
+    rowsSinceYield += 1;
+
+    const keepGoing = await maybeYield(rowsSinceYield >= batchSize);
+    if (!keepGoing) {
+      return;
+    }
   }
 
-  // Final yield to ensure smooth UI
-  await yieldControl("background");
+  await maybeYield(true);
+  if (!grid.container.isConnected) {
+    return;
+  }
+
   grid.rowManager.setRows(rows);
   cb();
 };
