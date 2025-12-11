@@ -1,4 +1,3 @@
-// autumn.js
 import { 
   AutumnSignalHook, 
   AutumnEffectHook, 
@@ -7,7 +6,7 @@ import {
   useAutumnContext
 } from "./internals";
 
-// -------- SIGNAL ----------
+// Signal implementation
 export function AutumnSignal(initial) {
   const [value, setValue] = AutumnSignalHook(initial);
   return {
@@ -16,28 +15,28 @@ export function AutumnSignal(initial) {
   };
 }
 
-// alias
 export const useAutumnSignal = AutumnSignal;
 
-// -------- EFFECT ----------
+// Effect implementation
 export function AutumnEffect(fn, deps) {
   return AutumnEffectHook(fn, deps);
 }
 
-// -------- COMPUTED ----------
+// Computed value implementation
 export function AutumnComputed(fn, deps) {
   return AutumnComputedHook(fn, deps);
 }
 
-// -------- CONTEXT ----------
+// Context implementation
 export function AutumnContext(defaultValue) {
   return AutumnContextHook(defaultValue);
 }
+
 export function useAutumnCtx(ctx) {
   return useAutumnContext(ctx);
 }
 
-// -------- COMPONENT WRAPPER ----------
+// Component wrapper
 export function AutumnComponent(Comp) {
   return Comp;
 }

@@ -1,15 +1,8 @@
-// /autmn-core/reactivity/reactive.js
-// UNIVERSE-LEVEL FRONTEND REACTIVE HELPERS
-// High-level reactive engine built on top of Signal/Computed
-// DAG-safe, lazy, batched, memory-safe, transactions-ready
-
 import { Signal, Computed, Effect, batch as coreBatch } from './signal.js';
 
 let CURRENT_DERIVED = null;
 
-// ====================
-// DERIVED EFFECT WITH FULL DAG SAFETY
-// ====================
+// Derived effect with DAG safety
 class DerivedEffect extends Effect {
   constructor(fn, options = {}) {
     super(fn, options);
@@ -22,7 +15,7 @@ class DerivedEffect extends Effect {
   }
 
   _run() {
-    // Remove stale dependencies
+    // Clean up stale dependencies
     for (const s of this._depsSnapshot) {
       if (!this.deps.has(s)) s._subs.delete(this);
     }
@@ -31,9 +24,7 @@ class DerivedEffect extends Effect {
   }
 }
 
-// ====================
-// OBJECT REACTIVITY
-// ====================
+// Create reactive proxy for objects
 export function reactive(obj) {
   if (typeof obj !== 'object' || obj === null) return obj;
 
@@ -48,9 +39,8 @@ export function reactive(obj) {
       if (prev instanceof Signal) {
         prev.set(value);
         return true;
-      } else {
-        return Reflect.set(target, key, value, receiver);
       }
+      return Reflect.set(target, key, value, receiver);
     },
     deleteProperty(target, key) {
       const val = target[key];

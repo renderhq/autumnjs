@@ -8,22 +8,20 @@ class TaskQueue {
   }
 
   enqueue(task) {
-    if (!task._enqueued) {
-      task._enqueued = true;
-      this.queue.push(task);
-      if (!this.scheduled && BATCH_DEPTH === 0) {
-        this.scheduled = true;
-        queueMicrotask(() => this._flush());
-      }
+    if (task._enqueued) return;
+    task._enqueued = true;
+    this.queue.push(task);
+    if (!this.scheduled && BATCH_DEPTH === 0) {
+      this.scheduled = true;
+      queueMicrotask(() => this._flush());
     }
   }
 
   _flush() {
     this.scheduled = false;
-    if (this.queue.length === 0) return;
+    if (!this.queue.length) return;
 
     if (this.queue.length > 1) {
-      // insertion sort is faster for small queues
       for (let i = 1; i < this.queue.length; i++) {
         let j = i, t = this.queue[i];
         while (j > 0 && this.queue[j - 1]._priority < t._priority) {
@@ -99,17 +97,13 @@ export class Effect {
     CURRENT_EFFECT = this;
     try {
       this.fn();
-    } catch (e) {
-      console.error("[Autmn-Core Effect]", e);
     } finally {
       CURRENT_EFFECT = prev;
-      for (const s of this.deps) s._subs.add(this);
     }
   }
 
-  run() { this._markDirty(); }
-
-  stop() {
+  dispose() {
+    if (!this.active) return;
     this.active = false;
     for (const s of this.deps) s._subs.delete(this);
     this.deps.clear();
@@ -125,33 +119,43 @@ export class Computed {
       this._value = getter();
       this._dirty = false;
     }, { scheduler: GLOBAL_QUEUE, lazy: true, priority: options.priority || 0 });
-
     this._subs = new Set();
   }
 
   get() {
-    if (CURRENT_EFFECT) CURRENT_EFFECT._track(this);
-    if (this._dirty) this._effect._run();
+    if (CURRENT_EFFECT) {
+      this._subs.add(CURRENT_EFFECT);
+      CURRENT_EFFECT.deps.add(this);
+    }
+    if (this._dirty) {
+      this._effect._run();
+      this._dirty = false;
+    }
     return this._value;
   }
 }
 
 export function batch(fn) {
-  BATCH_DEPTH++;
-  try { fn(); } finally {
-    BATCH_DEPTH--;
-    if (BATCH_DEPTH === 0) GLOBAL_QUEUE._flush();
+  if (BATCH_DEPTH === 0) {
+    BATCH_DEPTH++;
+    try {
+      return fn();
+    } finally {
+      BATCH_DEPTH--;
+      if (BATCH_DEPTH === 0) GLOBAL_QUEUE._flush();
+    }
   }
+  return fn();
 }
 
-export function signalStats(signal) { 
-  return { subscribers: signal._subs.size }; 
+export function signalStats(signal) {
+  return { subscribers: signal._subs.size };
 }
 
-export function effectStats(effect) { 
-  return { deps: effect.deps.size, dirty: effect._dirty, active: effect.active }; 
+export function effectStats(effect) {
+  return { deps: effect.deps.size, dirty: effect._dirty };
 }
 
-export function signal(value) { return new Signal(value); }
-export function effect(fn, opts) { return new Effect(fn, opts); }
-export function computedSignal(getter, opts) { return new Computed(getter, opts); }
+export const signal = (value) => new Signal(value);
+export const effect = (fn, opts) => new Effect(fn, opts);
+export const computedSignal = (getter, opts) => new Computed(getter, opts);
