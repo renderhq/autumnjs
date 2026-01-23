@@ -1,0 +1,75 @@
+{
+  "name": "@autumnjs",
+  "version": "1.0.0",
+  "description": "The complete Autumn.js framework - high-performance reactive engine and CLI tools",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./index.js",
+      "types": "./index.d.ts"
+    },
+    "./core": {
+      "import": "@autumnjs/core",
+      "types": "@autumnjs/core"
+    },
+    "./create": {
+      "import": "@autumnjs/create-autumns",
+      "types": "@autumnjs/create-autumns"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "echo 'Meta package - no build needed'"
+  },
+  "dependencies": {
+    "@autumnjs/core": "^1.0.0",
+    "@autumnjs/create-autumns": "^1.0.0"
+  },
+  "keywords": [
+    "autumn",
+    "autumn.js",
+    "reactive",
+    "signals",
+    "javascript",
+    "typescript",
+    "frontend",
+    "ui",
+    "components",
+    "state-management",
+    "performance",
+    "web",
+    "browser",
+    "jsx",
+    "reactive-programming",
+    "cli",
+    "scaffold",
+    "bun",
+    "bun-package",
+    "framework",
+    "complete"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/renderhq/autumnjs.git",
+    "directory": "packages/@autumnjs"
+  },
+  "bugs": {
+    "url": "https://github.com/renderhq/autumnjs/issues"
+  },
+  "homepage": "https://github.com/renderhq/autumnjs#readme",
+  "author": "Autumn Team <https://x.com/infinterenders>",
+  "license": "MIT"
+}

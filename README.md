@@ -67,58 +67,40 @@ This allows:
 
 ## Example: Integrating Autumn.js in an App
 
-```ts
-
-
-import {
-  useAutumnSignal,
-  AutumnEffect,
-  AutumnComponent,
-} from "../../autumn-core/core/autumn";
+```tsx
+import { signal, computed, render } from "@autumnjs/core";
 
 // Signals
-const sortKey = useAutumnSignal("id");
-const filterText = useAutumnSignal("");
+const count = signal(0);
+const doubled = computed(() => count.value * 2);
 
-// Background worker pipeline
-const worker = new Worker(new URL("./pipeline-worker.js", import.meta.url), {
-  type: "module",
-});
-
-worker.postMessage({
-  rows,
-  sharedBuffer,
-});
-
-// Rendering with AutumnComponent
-export const GridView = AutumnComponent(() => {
-  const dataView = new Grid({
-    columns: COLUMNS,
-    rows,
-    sortKey,
-    filterText,
-  });
+// Rendering a component
+function App() {
+  const increment = () => {
+    count.value++;
+  };
 
   return (
-    <div className="grid-container">
-      {dataView.render()}
+    <div className="counter">
+      <h1>Autumn Counter</h1>
+      <p>Count: {count.value}</p>
+      <p>Doubled: {doubled.value}</p>
+      <button onClick={increment}>Increment</button>
     </div>
   );
-});
+}
 
-// Effects
-AutumnEffect(() => {
-  worker.postMessage({
-    type: "filter",
-    query: filterText(),
-  });
-});
+// Mount the app
+const root = document.getElementById("app");
+if (root) {
+  render(App, root);
+}
 ```
 
 **Notes:**
 
-* `AutumnComponent` does not re-render; it binds reactive nodes to DOM leaves
-* `AutumnEffect` defines edges in the DAG — no implicit reactivity
+* `render` binds the reactive nodes to DOM leaves.
+* Updates are surgical—only the parts of the DOM that depend on changed signals are updated.
 
 ---
 
@@ -188,13 +170,14 @@ The system is **data-oriented**, not component-oriented.
 git clone https://github.com/renderhq/autumnjs.git
 cd autumnjs
 
-# Install dependencies
-yarn install
-# or
-bun install
+# Install dependencies using pnpm
+pnpm install
 
-# Start the development server
-yarn dev
+# Build the packages
+pnpm build
+
+# Start development
+pnpm dev
 ```
 
 ---

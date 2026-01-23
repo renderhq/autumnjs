@@ -1,0 +1,77 @@
+{
+  "name": "@autumnjs/create-autumns",
+  "version": "1.0.0",
+  "description": "CLI to create new Autumn.js applications with modern templates",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "create-autumns": "./dist/index.js",
+    "create-autumn": "./dist/index.js",
+    "autumns": "./dist/index.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
+  },
+  "files": [
+    "dist",
+    "template"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --clean",
+    "dev": "tsup src/index.ts --format esm --dts --watch --clean",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "autumn",
+    "autumn.js",
+    "cli",
+    "template",
+    "generator",
+    "scaffold",
+    "reactive",
+    "signals",
+    "javascript",
+    "typescript",
+    "frontend",
+    "ui",
+    "components",
+    "jsx",
+    "bun",
+    "bun-package"
+  ],
+  "dependencies": {
+    "prompts": "^2.4.2",
+    "kolorist": "^1.8.0",
+    "minimist": "^1.2.8"
+  },
+  "devDependencies": {
+    "@types/minimist": "^1.2.5",
+    "@types/node": "^20.0.0",
+    "@types/prompts": "^2.4.9",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/renderhq/autumnjs.git",
+    "directory": "packages/create-autumns"
+  },
+  "bugs": {
+    "url": "https://github.com/renderhq/autumnjs/issues"
+  },
+  "homepage": "https://github.com/renderhq/autumnjs#readme",
+  "author": "Autumn Team",
+  "license": "MIT"
+}

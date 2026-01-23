@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutumnJS Counter Test</title>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module">
+        import { atom, computed, render } from './dist/index.js';
+
+        const count = atom(0);
+        const doubled = computed(() => count.value * 2);
+
+        function App() {
+            return (() => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <h1>Count: ${count.value}</h1>
+                    <p>Doubled: ${doubled.value}</p>
+                    <button>Increment</button>
+                `;
+                
+                const button = div.querySelector('button');
+                button.onclick = () => count.set(count.value + 1);
+                
+                return div;
+            })();
+        }
+
+        // Simple render loop
+        let currentEl = null;
+        function renderApp() {
+            const newEl = App();
+            const root = document.getElementById('root');
+            if (currentEl) {
+                root.replaceChild(newEl, currentEl);
+            } else {
+                root.appendChild(newEl);
+            }
+            currentEl = newEl;
+        }
+
+        // Initial render
+        renderApp();
+
+        // Re-render when count changes
+        let prevCount = count.value;
+        setInterval(() => {
+            if (prevCount !== count.value) {
+                renderApp();
+                prevCount = count.value;
+            }
+        }, 16); // ~60fps
+    </script>
+</body>
+</html>

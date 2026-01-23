@@ -1,20 +1,20 @@
 {
-  "name": "test",
+  "name": "@autumnjs/root",
   "private": true,
-  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
-    "ts": "tsc --watch --noEmit",
-    "predeploy": "cd example && npm run build"
+    "build": "pnpm --filter \"@autumnjs/*\" build",
+    "dev": "pnpm --filter \"@autumnjs/*\" dev",
+    "clean": "pnpm -r exec rm -rf dist",
+    "create": "pnpm --filter @autumnjs/create-autumns dev",
+    "scaffold": "pnpm --filter @autumnjs/create-autumns dev"
   },
   "devDependencies": {
-    "typescript": "5.0.2",
-    "vite": "4.3.2"
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
   },
-  "dependencies": {
-    "@types/timsort": "^0.3.1",
-    "apache-arrow": "^13.0.0",
-    "fast-sort": "^3.4.0",
-    "main-thread-scheduling": "8.0.0",
-    "timsort": "^0.3.0"
-  }
+  "packageManager": "pnpm@8.0.0"
 }

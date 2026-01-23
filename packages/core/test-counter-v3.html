@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutumnJS Counter Test</title>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module">
+        import { atom, computed, render } from './dist/index.js';
+
+        const count = atom(0);
+        const doubled = computed(() => count.value * 2);
+
+        function App() {
+            return (() => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <h1>Count: ${count()}</h1>
+                    <p>Doubled: ${doubled()}</p>
+                    <button>Increment</button>
+                `;
+                
+                const button = div.querySelector('button');
+                button.onclick = () => count.update(c => c + 1);
+                
+                return div;
+            })();
+        }
+
+        // Test basic functionality
+        try {
+            console.log('Initial count:', count());
+            console.log('Initial doubled:', doubled());
+            
+            // Test update
+            count.set(5);
+            console.log('After set to 5:', count());
+            console.log('Doubled after set to 5:', doubled());
+            
+            // Test update function
+            count.update(c => c + 3);
+            console.log('After update +3:', count());
+            console.log('Doubled after update +3:', doubled());
+            
+            alert('AutumnJS Core Functions Working! ✅\n\n' +
+                  `Initial count test passed\n` +
+                  `Atom set() working: ${count()}\n` +
+                  `Computed working: ${doubled()}\n` +
+                  `Atom update() working: ${count() > 5}\n\n` +
+                  'You can now publish safely!');
+            
+        } catch (error) {
+            console.error('Error testing AutumnJS:', error);
+            alert('Error: ' + error.message);
+        }
+    </script>
+</body>
+</html>

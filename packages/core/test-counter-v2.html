@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutumnJS Counter Test</title>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module">
+        import { atom, computed } from './dist/index.js';
+        import { jsx } from './dist/jsx-runtime.js';
+
+        const count = atom(0);
+        const doubled = computed(() => count.value * 2);
+
+        function App() {
+            return jsx('div', {}, 
+                jsx('h1', {}, `Count: ${count.value}`),
+                jsx('p', {}, `Doubled: ${doubled.value}`),
+                jsx('button', { 
+                    onClick: () => count.set(count.value + 1) 
+                }, 'Increment')
+            );
+        }
+
+        // Basic mount implementation
+        let root = document.getElementById('root');
+        
+        function render() {
+            const element = App();
+            root.innerHTML = '';
+            
+            if (typeof element === 'string') {
+                root.innerHTML = element;
+            } else {
+                root.appendChild(element);
+            }
+        }
+
+        // Initial render
+        render();
+
+        // Simple reactivity
+        count.update = (fn) => {
+            const oldValue = count();
+            const newValue = fn(oldValue);
+            count.set(newValue);
+        };
+
+        // Add reactivity
+        const originalSet = count.set;
+        count.set = function(value) {
+            originalSet.call(this, value);
+            render();
+        };
+
+        // Initial render
+        render();
+    </script>
+</body>
+</html>

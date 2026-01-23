@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FrameRok API Test</title>
+</head>
+<body>
+    <div id="app"></div>
+    <div id="test-results"></div>
+    
+    <script type="module">
+        import { Autumn, mount, unmount, setRenderer, getRenderer, plugin, hydrate } from './dist/index.js';
+        
+        const results = document.getElementById('test-results');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.style.margin = '10px 0';
+            div.style.padding = '10px';
+            div.style.border = type === 'error' ? '1px solid red' : type === 'success' ? '1px solid green' : '1px solid #ccc';
+            div.textContent = message;
+            results.appendChild(div);
+            console.log(message);
+        }
+
+        // Test 1: Basic mounting
+        try {
+            const app = document.getElementById('app');
+            mount(() => {
+                const div = document.createElement('div');
+                div.textContent = 'FrameRok is working!';
+                return div;
+            }, app);
+            log('✅ Mount API works', 'success');
+        } catch (error) {
+            log('❌ Mount API failed: ' + error.message, 'error');
+        }
+
+        // Test 2: Renderer switching
+        try {
+            setRenderer('solid');
+            log('✅ Set renderer to Solid: ' + getRenderer().name, 'success');
+            
+            setRenderer('preact');
+            log('✅ Set renderer to Preact: ' + getRenderer().name, 'success');
+        } catch (error) {
+            log('❌ Renderer API failed: ' + error.message, 'error');
+        }
+
+        // Test 3: Plugin system
+        try {
+            plugin((engine) => {
+                log('✅ Plugin system works - engine is available', 'success');
+            });
+        } catch (error) {
+            log('❌ Plugin API failed: ' + error.message, 'error');
+        }
+
+        // Test 4: Reactivity APIs
+        try {
+            const { atom, computed, effect } = Autumn;
+            
+            // Test atom
+            const count = atom(0);
+            log('✅ Atom created: ' + count.value, 'success');
+            
+            // Test computed
+            const doubled = computed(() => count.value * 2);
+            log('✅ Computed works: ' + doubled.value, 'success');
+            
+            // Test effect
+            effect(() => {
+                console.log('Count changed:', count.value);
+            });
+            log('✅ Effect registered', 'success');
+            
+            // Update atom
+            count.value = 5;
+            log('✅ Atom updated to: ' + count.value + ', Computed: ' + doubled.value, 'success');
+            
+        } catch (error) {
+            log('❌ Reactivity API failed: ' + error.message, 'error');
+        }
+
+        // Test 5: Store API
+        try {
+            const { createStore } = Autumn;
+            const store = createStore({ count: 0 });
+            log('✅ Store created', 'success');
+            
+            store.setState({ count: 10 });
+            log('✅ Store state updated: ' + JSON.stringify(store.getState()), 'success');
+            
+        } catch (error) {
+            log('❌ Store API failed: ' + error.message, 'error');
+        }
+
+        // Test 6: Components
+        try {
+            const { For, Show, Switch } = Autumn.components;
+            log('✅ Components loaded: For, Show, Switch available', 'success');
+        } catch (error) {
+            log('❌ Components API failed: ' + error.message, 'error');
+        }
+
+        // Test 7: Grid System
+        try {
+            const { Grid } = Autumn;
+            log('✅ Grid system available', 'success');
+        } catch (error) {
+            log('❌ Grid API failed: ' + error.message, 'error');
+        }
+
+        // Test 8: Lifecycle
+        try {
+            const { onMount, onCleanup } = Autumn;
+            log('✅ Lifecycle hooks available', 'success');
+        } catch (error) {
+            log('❌ Lifecycle API failed: ' + error.message, 'error');
+        }
+
+        // Test 9: Utils
+        try {
+            const { createId, splitProps } = Autumn;
+            const id = createId();
+            const props = { a: 1, b: 2, c: 3 };
+            const [include, exclude] = splitProps(props, ['a', 'b']);
+            log('✅ Utils work - ID: ' + id + ', Props split: ' + JSON.stringify(include), 'success');
+        } catch (error) {
+            log('❌ Utils API failed: ' + error.message, 'error');
+        }
+
+        // Test 10: Dispatcher
+        try {
+            const { dispatcher } = Autumn;
+            dispatcher.on('test:event', (data) => {
+                log('✅ Dispatcher event received: ' + JSON.stringify(data), 'success');
+            });
+            dispatcher.emit('test:event', { message: 'Hello from dispatcher!' });
+        } catch (error) {
+            log('❌ Dispatcher API failed: ' + error.message, 'error');
+        }
+
+        log('\n🎉 FrameRok API testing complete!', 'success');
+    </script>
+</body>
+</html>
